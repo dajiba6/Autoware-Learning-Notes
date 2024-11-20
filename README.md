@@ -1,2 +1,2 @@
 # Autoware-Learning-Notes
-Autoware learning notes, hoping to help more beginers
+Autoware learning notes, hoping to help beginers
