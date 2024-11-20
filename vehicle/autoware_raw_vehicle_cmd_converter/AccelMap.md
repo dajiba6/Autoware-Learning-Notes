@@ -1,6 +1,15 @@
-## AccelMap
+# AccelMap
 This class contains all the information about the acceleration map. It can provide the appropriate throttle command by specifying the velocity and acceleration values, achieving this through the use of a lookup table.
-### getThrottle
+## exp
+```
+Throttle data: (vel, throttle -> acc)
+        0.0,  10.0,  20.0  (vel)
+0,      1.0,  11.0,  21.0
+0.5,    2.0,  22.0,  42.0
+1.0,    3.0,  33.0,  46.0
+(throttle)
+```
+## getThrottle
 - Obtain the matching table between throttle and acceleration when velocity confirmed.
 - Using the matching table to find the right throttle value when acceleration confirmed.
 ```cpp
