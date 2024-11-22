@@ -1,8 +1,29 @@
 # raw_vehicle_cmd_converter
 ## Intro
 This package converts inputs like acceleration and desired steering into vehicle control commands, including throttle, brake, and steering angle.
+
+node:
+- init
+  - InterProcessPollingSubscriber sub_odometry_ in hpp: obtain odometry info
+  - sub_control_cmd_ in constructor: obtain control command
+    - bind with `onControlCmd`. When recieve messages it will use lookup to convert command and then publish actuation command
+  - pub_actuation_cmd_ in constructor: publish actuation command
+
+- [x] what is the frequency of sub_control_cmd_?  
+ans: frequncy of sub is based on the frequncy of pub.
+
+this node is registered as a components, which means it can be loaded without instantiation:
+```cpp
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(autoware::raw_vehicle_cmd_converter::RawVehicleCommandConverterNode)
+```
+- [ ] lifecircle and workflow of this node?
 ## Constructor
 Init parameters, subscribers and publishers.
+- [x] difference between   
+const double a = declare_parameter<double>("vgr_coef_a");  
+const double kp_steer{declare_parameter<double>("steer_pid.kp")};  
+ans:`=` allows narrowing conversion while `{}` dose not. so `{}` is safer.
 ```cpp
 RawVehicleCommandConverterNode::RawVehicleCommandConverterNode(
   const rclcpp::NodeOptions & node_options)
@@ -37,7 +58,8 @@ RawVehicleCommandConverterNode::RawVehicleCommandConverterNode(
 }
 ```
 ## onControlCmd
-Obtain twist and cmd, then call publishActuationCmd().
+Obtain twist and cmd, then call publishActuationCmd().  
+`Control::ConstSharedPtr` msg is defined in `src/core/autoware_msgs/autoware_control_msgs/msg/Control.msg`.
 ```cpp
 void RawVehicleCommandConverterNode::onControlCmd(const Control::ConstSharedPtr msg)
 {
@@ -77,14 +99,14 @@ void RawVehicleCommandConverterNode::publishActuationCmd()
   const double steer = control_cmd_ptr_->lateral.steering_tire_angle;
   const double steer_rate = control_cmd_ptr_->lateral.steering_tire_rotation_rate;
   bool accel_cmd_is_zero = true;
-  // Calculate throttle cmd.
+  // 1. Calculate throttle cmd.
   if (convert_accel_cmd_) {
     desired_accel_cmd = calculateAccelMap(vel, acc, accel_cmd_is_zero);
   } else {
     // if conversion is disabled use acceleration as actuation cmd
     desired_accel_cmd = (acc >= 0) ? acc : 0;
   }
-  // Calculate brake cmd.
+  // 2. Calculate brake cmd.
   if (convert_brake_cmd_) {
     if (accel_cmd_is_zero) {
       desired_brake_cmd = calculateBrakeMap(vel, acc);
@@ -93,6 +115,7 @@ void RawVehicleCommandConverterNode::publishActuationCmd()
     // if conversion is disabled use negative acceleration as brake cmd
     desired_brake_cmd = -acc;
   }
+  // 3. Calculate steer cmd.
   if (!convert_steer_cmd_method_.has_value()) {
     // if conversion is disabled use steering angle as steer cmd
     desired_steer_cmd = steer;
@@ -106,7 +129,7 @@ void RawVehicleCommandConverterNode::publishActuationCmd()
   } else if (convert_steer_cmd_method_.value() == "steer_map") {
     desired_steer_cmd = calculateSteerFromMap(vel, steer, steer_rate);
   }
-  // publish final actuation cmd
+  // 4. publish final actuation cmd
   actuation_cmd.header.frame_id = "base_link";
   actuation_cmd.header.stamp = control_cmd_ptr_->stamp;
   actuation_cmd.actuation.accel_cmd = desired_accel_cmd;
@@ -116,6 +139,7 @@ void RawVehicleCommandConverterNode::publishActuationCmd()
 }
 ```
 ## calculateAccelMap
+Obtain throttle cmd by using lookup table.
 ```cpp
 double RawVehicleCommandConverterNode::calculateAccelMap(
   const double current_velocity, const double desired_acc, bool & accel_cmd_is_zero)
