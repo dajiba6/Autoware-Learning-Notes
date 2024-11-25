@@ -23,7 +23,29 @@ Init parameters, subscribers and publishers.
 - [x] difference between   
 const double a = declare_parameter<double>("vgr_coef_a");  
 const double kp_steer{declare_parameter<double>("steer_pid.kp")};  
-ans:`=` allows narrowing conversion while `{}` dose not. so `{}` is safer.
+**ans**:  
+`=` allows narrowing conversion while `{}` dose not. so `{}` is safer.
+
+- [x] `sub_control_cmd_ = create_subscription<Control>(
+    "~/input/control_cmd", 1, std::bind(&RawVehicleCommandConverterNode::onControlCmd, this, _1));`  
+    What is `~/input/control_cmd`? What is the difference of topic name beteen autoware and apollo?  
+**ans**:  
+Topics with the prefix ~ represent private topics, indicating that they are specific to a particular node.  
+The last token is the topic or service base name, and any preceding tokens make up the namespace of the topic or service.  
+In the launch folder, the .launch.xml file remaps the ~/input/control_cmd topic to $(var input_odometry), which is defined as /localization/kinematic_state. This means that the message read from ~/input/control_cmd is actually sourced from the /localization/kinematic_state topic.  
+Apollo does not have the mechanisms of using ~ to represent a relative namespace and topic remapping.  
+**exp1**: Relative names are appended to the namespace of the node which creates them. For example, if the node is put into a namespace /ping/pong and the topic or service name is foo/bar, then the absolute name will become /ping/pong/foo/bar. However, if the topic or service name is /foo/bar, then the absolute name will stay just /foo/bar, ignoring the node’s namespace.
+  | **Input Name** | **Node: my_node NS: none** | **Node: my_node NS: /my_ns** |
+  | -------------- | -------------------------- | ---------------------------- |
+  | `ping`         | `/ping`                    | `/my_ns/ping`                |
+  | `/ping`        | `/ping`                    | `/ping`                      |
+  | `~`            | `/my_node`                 | `/my_ns/my_node`             |
+  | `~/ping`       | `/my_node/ping`            | `/my_ns/my_node/ping`        |
+
+  [topic name doc1](https://wiki.ros.org/Names)  
+  [topic name doc2](https://design.ros2.org/articles/topic_and_service_names.html)
+
+
 ```cpp
 RawVehicleCommandConverterNode::RawVehicleCommandConverterNode(
   const rclcpp::NodeOptions & node_options)
@@ -49,7 +71,6 @@ RawVehicleCommandConverterNode::RawVehicleCommandConverterNode(
   // set subscriber and publisher
   sub_control_cmd_ = create_subscription<Control>(
     "~/input/control_cmd", 1, std::bind(&RawVehicleCommandConverterNode::onControlCmd, this, _1));
-
   pub_actuation_cmd_ = create_publisher<ActuationCommandStamped>("~/output/actuation_cmd", 1);
   debug_pub_steer_pid_ = create_publisher<Float32MultiArrayStamped>(
     "/vehicle/raw_vehicle_cmd_converter/debug/steer_pid", 1);
