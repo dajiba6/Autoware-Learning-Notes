@@ -1,5 +1,9 @@
 # Command
 Enter dev container
+- [x] What is the difference between devel and normal?
+  ans:  
+  1. use different image.
+  2. devel mode will set current folder as /workspace.
 ```shell
 ./docker/run.sh --devel
 ```
